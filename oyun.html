@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>2048-Oyun</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Replaced favicon.ico with a placeholder to avoid file not found errors -->
+    <link rel="shortcut icon" href="https://placehold.co/16x16/000000/FFFFFF?text=2048">
+    <!-- Inter font from Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            /* Default light mode background */
+            background-color: #f7fafc; /* bg-gray-100 */
+        }
+
+        /* Dark mode styles */
+        body.dark {
+            background-color: #1a202c; /* bg-gray-900 */
+        }
+
+        .container {
+            background-color: #ffffff; /* bg-white */
+        }
+        body.dark .container {
+            background-color: #2d3748; /* bg-gray-800 */
+        }
+
+        .heading .title, .subtitle {
+            color: #2d3748; /* text-gray-800 */
+        }
+        body.dark .heading .title, body.dark .subtitle {
+            color: #f7fafc; /* text-gray-100 */
+        }
+
+        .score-container, .best-container {
+            background-color: #edf2f7; /* bg-gray-200 */
+        }
+        body.dark .score-container, body.dark .best-container {
+            background-color: #4a5568; /* bg-gray-700 */
+        }
+
+        .score-container .title, .best-container .title {
+            color: #718096; /* text-gray-600 */
+        }
+        body.dark .score-container .title, body.dark .best-container .title {
+            color: #a0aec0; /* text-gray-300 */
+        }
+
+        .score, .best-score {
+            color: #2d3748; /* text-gray-800 */
+        }
+        body.dark .score, body.dark .best-score {
+            color: #f7fafc; /* text-gray-100 */
+        }
+
+        .above-game, .footer span {
+            color: #718096; /* text-gray-600 / text-gray-500 */
+        }
+        body.dark .above-game, body.dark .footer span {
+            color: #a0aec0; /* text-gray-300 / text-gray-400 */
+        }
+
+        .game-intro .restart-btn, .pop-container button {
+            background-color: #4299e1; /* bg-blue-500 */
+            color: #ffffff;
+        }
+        body.dark .game-intro .restart-btn, body.dark .pop-container button {
+            background-color: #2b6cb0; /* bg-blue-700 */
+        }
+        .game-intro .restart-btn:hover, .pop-container button:hover {
+            background-color: #3182ce; /* hover:bg-blue-600 */
+        }
+        body.dark .game-intro .restart-btn:hover, body.dark .pop-container button:hover {
+            background-color: #2c5282; /* hover:bg-blue-800 */
+        }
+
+        /* Custom styles for the 2048 game */
+        .game-container {
+            position: relative;
+            background-color: #bbada0; /* Background for the grid */
+            padding: 0.5rem; /* Gap between cells */
+            border-radius: 0.75rem; /* rounded-xl */
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: repeat(4, 1fr);
+            gap: 0.5rem;
+        }
+
+        .grid-cell {
+            background-color: #cdc1b4;
+            border-radius: 0.5rem; /* rounded-lg */
+            aspect-ratio: 1 / 1; /* Make cells square */
+        }
+
+        .tile-container {
+            position: absolute;
+            top: 0.5rem; /* Match padding of game-container */
+            left: 0.5rem; /* Match padding of game-container */
+            width: calc(100% - 1rem); /* Full width minus padding */
+            height: calc(100% - 1rem); /* Full height minus padding */
+            pointer-events: none; /* Allow clicks to pass through to the game container if needed */
+        }
+
+        .tile {
+            position: absolute;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: 700;
+            border-radius: 0.5rem; /* rounded-lg */
+            transition: transform 0.1s ease-in-out, background-color 0.1s ease-in-out, color 0.1s ease-in-out;
+            width: calc(25% - 0.5rem); /* 1/4th width minus gap */
+            height: calc(25% - 0.5rem); /* 1/4th height minus gap */
+            box-sizing: border-box; /* Include padding and border in element's total width and height */
+            color: #776e65; /* Default tile text color */
+            font-size: 2.5rem; /* Default font size for tiles */
+        }
+
+        /* Tile specific colors and font sizes (these usually don't change in dark mode) */
+        .tile-2 { background-color: #eee4da; font-size: 2.5rem; }
+        .tile-4 { background-color: #ede0c8; font-size: 2.5rem; }
+        .tile-8 { background-color: #f2b179; color: #f9f6f2; font-size: 2.5rem; }
+        .tile-16 { background-color: #f59563; color: #f9f6f2; font-size: 2.5rem; }
+        .tile-32 { background-color: #f67c5f; color: #f9f6f2; font-size: 2.5rem; }
+        .tile-64 { background-color: #f65e3b; color: #f9f6f2; font-size: 2.5rem; }
+        .tile-128 { background-color: #edcf72; color: #f9f6f2; font-size: 2rem; }
+        .tile-256 { background-color: #edcc61; color: #f9f6f2; font-size: 2rem; }
+        .tile-512 { background-color: #edc850; color: #f9f6f2; font-size: 2rem; }
+        .tile-1024 { background-color: #edc53f; color: #f9f6f2; font-size: 1.5rem; }
+        .tile-2048 { background-color: #edc22e; color: #f9f6f2; font-size: 1.5rem; }
+        /* For higher values, if game extends beyond 2048 */
+        .tile-4096 { background-color: #3c3a32; color: #f9f6f2; font-size: 1.5rem; }
+        .tile-8192 { background-color: #3c3a32; color: #f9f6f2; font-size: 1.5rem; }
+
+        /* Animation for new tiles */
+        @keyframes appear {
+            0% { transform: scale(0); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .tile-new {
+            animation: appear 0.2s ease-out;
+        }
+
+        /* Animation for merged tiles */
+        @keyframes pop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+        .tile-merged {
+            animation: pop 0.2s ease-in-out;
+        }
+
+        /* Pop-up containers */
+        .pop-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-size: 3rem;
+            font-weight: bold;
+            color: #776e65;
+            border-radius: 0.75rem; /* rounded-xl */
+            z-index: 10;
+            display: none; /* Hidden by default */
+            text-align: center;
+        }
+        body.dark .pop-container {
+            background-color: rgba(0, 0, 0, 0.7);
+            color: #f7fafc;
+        }
+        .pop-container p:first-child {
+            font-size: 5rem;
+            margin-bottom: 1rem;
+        }
+        .pop-container button {
+            margin-top: 1.5rem;
+            padding: 0.75rem 1.5rem;
+            font-size: 1.25rem;
+            font-weight: bold;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out;
+        }
+
+        /* Turkish Flag Styles */
+        .turkish-flag-container {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            width: 120px; /* Adjust size as needed */
+            height: 80px;
+            z-index: 100;
+            overflow: hidden; /* Hide parts of the flag that go outside */
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .turkish-flag-svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+            background-color: #e30a17; /* Turkish Red */
+            transform-origin: top left; /* Pivot point for waving */
+            animation: wave 3s ease-in-out infinite alternate; /* Waving animation */
+        }
+
+        @keyframes wave {
+            0% { transform: rotateZ(0deg) skewY(0deg); }
+            25% { transform: rotateZ(2deg) skewY(1deg); }
+            50% { transform: rotateZ(0deg) skewY(0deg); }
+            75% { transform: rotateZ(-2deg) skewY(-1deg); }
+            100% { transform: rotateZ(0deg) skewY(0deg); }
+        }
+
+        /* Crescent and Star positioning within SVG */
+        .crescent-path {
+            fill: white;
+            transform: translateX(35%) translateY(50%); /* Adjust position */
+        }
+        .star-path {
+            fill: white;
+            transform: translateX(60%) translateY(50%); /* Adjust position */
+        }
+
+        /* Dark Mode Toggle Button */
+        #dark-mode-toggle {
+            background-color: #e2e8f0; /* bg-gray-200 */
+            color: #2d3748; /* text-gray-800 */
+            padding: 0.5rem 0.75rem;
+            border-radius: 9999px; /* rounded-full */
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        #dark-mode-toggle:hover {
+            background-color: #cbd5e0; /* hover:bg-gray-300 */
+        }
+        body.dark #dark-mode-toggle {
+            background-color: #4a5568; /* dark:bg-gray-700 */
+            color: #f7fafc; /* dark:text-gray-100 */
+        }
+        body.dark #dark-mode-toggle:hover {
+            background-color: #2d3748; /* dark:hover:bg-gray-800 */
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex flex-col min-h-screen items-center justify-center p-4">
+    <!-- Türk Bayrağı - Dalgalanan SVG -->
+    <div class="turkish-flag-container">
+        <svg class="turkish-flag-svg" viewBox="0 0 100 66.67" preserveAspectRatio="xMidYMid slice">
+            <!-- Red background is handled by CSS background-color on .turkish-flag-svg -->
+            <!-- Crescent -->
+            <path class="crescent-path" d="M 40,33.33 A 15,15 0 0 1 40,48.33 A 12,12 0 0 0 40,18.33 A 15,15 0 0 1 40,33.33 M 42,33.33 A 12,12 0 0 0 42,45.33 A 9,9 0 0 1 42,21.33 A 12,12 0 0 0 42,33.33 Z" />
+            <!-- Star -->
+            <polygon class="star-path" points="55,33.33 56.5,37.83 61.5,37.83 57.5,40.83 59,45.33 55,42.33 51,45.33 52.5,40.83 48.5,37.83 53.5,37.83" />
+        </svg>
+    </div>
+
+    <div class="container bg-white p-6 rounded-xl shadow-lg max-w-md w-full sm:max-w-lg md:max-w-xl lg:max-w-2xl flex flex-col items-center">
+        <div class="heading flex flex-col sm:flex-row justify-between items-center w-full mb-6 relative">
+            <h1 class="title text-5xl font-bold text-gray-800 mb-4 sm:mb-0">
+                <a href="javascript:void(0);" id="game-title-link" class="hover:text-blue-600 transition-colors duration-200">2048</a>
+            </h1>
+            <div class="flex items-center space-x-4">
+                <div class="scores-container flex space-x-4">
+                    <div class="score-container bg-gray-200 p-3 rounded-lg text-center shadow-inner">
+                        <p class="title text-xs font-semibold text-gray-600">SKOR</p>
+                        <p class="score text-2xl font-bold text-gray-800" id="score">0</p>
+                        <div class="score-addition text-green-500 text-sm font-bold hidden" id="score-addition">+4</div>
+                    </div>
+                    <div class="best-container bg-gray-200 p-3 rounded-lg text-center shadow-inner">
+                        <p class="title text-xs font-semibold text-gray-600">EN İYİ</p>
+                        <p class="score text-2xl font-bold text-gray-800" id="best-score">0</p>
+                    </div>
+                </div>
+                <!-- Dark Mode Toggle Button -->
+                <button id="dark-mode-toggle" aria-label="Koyu Modu Aç/Kapat">
+                    ☀️
+                </button>
+            </div>
+        </div>
+
+        <div class="game-intro text-center mb-6 w-full">
+            <button id="restart-btn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-md transition-all duration-200 mb-4 inline-block">
+                Yeni Oyun
+            </button>
+            <h2 class="subtitle text-xl font-semibold text-gray-700 mb-2">
+                2048 Oyununu Çevrimiçi Oyna
+            </h2>
+            <p class="above-game text-gray-600 text-sm">
+                Sayıları Birleştirin Ve Ulaşın <strong class="text-blue-500">2048</strong> kutucuğuna!
+            </p>
+            <p id="user-id" class="text-sm text-gray-500 mt-2">Kullanıcı ID: Yükleniyor...</p>
+            <p id="firebase-warning" class="text-xs text-red-500 mt-2 hidden">
+                <strong>Uyarı:</strong> Veritabanı özellikleri devre dışı bırakıldı veya düzgün çalışmayabilir. Lütfen kendi Firebase projenizi yapılandırın.
+            </p>
+        </div>
+
+        <div id="game-board" class="game-container relative w-full aspect-square max-w-sm">
+            <!-- Grid Cells (background) -->
+            <div class="grid-cell"></div>
+            <div class="grid-cell"></div>
+            <div class="grid-cell"></div>
+            <div class="grid-cell"></div>
+            <div class="grid-cell"></div>
+            <div class="grid-cell"></div>
+            <div class="grid-cell"></div>
+            <div class="grid-cell"></div>
+            <div class="grid-cell"></div>
+            <div class="grid-cell"></div>
+            <div class="grid-cell"></div>
+            <div class="grid-cell"></div>
+            <div class="grid-cell"></div>
+            <div class="grid-cell"></div>
+            <div class="grid-cell"></div>
+            <div class="grid-cell"></div>
+            <!-- Tiles will be dynamically added here by JavaScript -->
+            <div id="tile-container" class="tile-container"></div>
+
+            <!-- Failure and Winning Containers -->
+            <div id="failure-container" class="failure-container pop-container">
+                <p>:(</p>
+                <p>Kaybettin!</p>
+                <button id="failure-restart-btn-popup" class="bg-blue-500 hover:bg-blue-600 text-white">Yeni Oyun</button>
+            </div>
+            <div id="winning-container" class="winning-container pop-container">
+                <p>:)</p>
+                <p>Kazandın!</p>
+                <button id="winning-restart-btn-popup" class="bg-blue-500 hover:bg-blue-600 text-white">Yeni Oyun</button>
+            </div>
+        </div>
+
+        <div class="footer mt-6 text-center text-gray-500 text-sm">
+            <span>
+                Crafted with ❤️ by
+                <a href="https://github.com/Hasanuyar7" class="text-blue-500 hover:underline">@Hasanuyar7</a>/<a href="https://github.com/Hasanuyar7" class="text-blue-500 hover:underline">Github</a>
+            </span>
+        </div>
+    </div>
+
+    <!-- Firebase v8 Compat SDKs (global access) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+    <script>
+        console.log("Script is running in global scope.");
+
+        // Game configuration
+        const GRID_SIZE = 4;
+        const TILE_SIZE_PERCENT = 25; // Each tile takes 25% of the grid width/height
+        const GAP_PERCENT = 0.5; // Gap between tiles, relative to tile size (adjust as needed)
+
+        // Game state variables
+        let board = [];
+        let score = 0;
+        let bestScore = 0; // Will be loaded from Firestore
+        let isGameOver = false;
+        let hasWon = false;
+
+        // DOM elements
+        const scoreElement = document.getElementById('score');
+        const bestScoreElement = document.getElementById('best-score');
+        const scoreAdditionElement = document.getElementById('score-addition');
+        const tileContainer = document.getElementById('tile-container');
+        const failureContainer = document.getElementById('failure-container');
+        const winningContainer = document.getElementById('winning-container');
+        const restartButton = document.getElementById('restart-btn');
+        const userIdElement = document.getElementById('user-id');
+        const gameTitleLink = document.getElementById('game-title-link');
+        const failureRestartBtnPopup = document.getElementById('failure-restart-btn-popup');
+        const winningRestartBtnPopup = document.getElementById('winning-restart-btn-popup');
+        const firebaseWarningElement = document.getElementById('firebase-warning');
+        const darkModeToggle = document.getElementById('dark-mode-toggle'); // New: Dark mode toggle button
+
+        // Firebase variables
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        let firebaseConfig = {};
+        let firebaseEnabled = false; // Flag to control if Firebase features are active
+
+        // Attempt to parse Firebase config from Canvas environment
+        if (typeof __firebase_config !== 'undefined' && __firebase_config !== '{}') {
+            try {
+                const parsedConfig = JSON.parse(__firebase_config);
+                // Validate if the parsed config has a non-placeholder API key
+                if (parsedConfig.apiKey && parsedConfig.apiKey.length > 10 && !parsedConfig.apiKey.includes("YOUR_API_KEY")) {
+                    firebaseConfig = parsedConfig;
+                    firebaseEnabled = true; // Enable Firebase if a valid config is found
+                } else {
+                    console.warn("Canvas Firebase yapılandırması mevcut ancak API anahtarı geçersiz veya yer tutucu. Veritabanı devre dışı.");
+                    firebaseWarningElement.classList.remove('hidden');
+                }
+            } catch (e) {
+                console.error("Canvas Firebase yapılandırması ayrıştırılırken hata:", e);
+                firebaseWarningElement.classList.remove('hidden');
+            }
+        }
+
+        // If firebaseEnabled is still false (meaning no valid Canvas config was found)
+        if (!firebaseEnabled) {
+            console.warn("Firebase veritabanı özellikleri devre dışı bırakıldı. Lütfen kendi Firebase projenizi yapılandırın.");
+            firebaseWarningElement.classList.remove('hidden');
+            // If running locally, the user needs to manually set firebaseConfig here
+            // Example:
+            /*
+            firebaseConfig = {
+                apiKey: "YOUR_ACTUAL_API_KEY",
+                authDomain: "your-project-id.firebaseapp.com",
+                projectId: "your-project-id",
+                storageBucket: "your-project-id.appspot.com",
+                messagingSenderId: "...",
+                appId: "..."
+            };
+            // If you set your own config, you can set firebaseEnabled = true here
+            // firebaseEnabled = true;
+            */
+        }
+
+
+        let app;
+        let db;
+        let auth;
+        let userId;
+        let isAuthReady = false; // Flag to ensure auth is ready before Firestore ops
+
+        // Game object to encapsulate functions
+        const game = {
+            init: async function() {
+                if (firebaseEnabled && !app) { // Only attempt Firebase init if enabled and not already initialized
+                    try {
+                        app = firebase.initializeApp(firebaseConfig);
+                        auth = firebase.auth();
+                        db = firebase.firestore();
+
+                        // Listen for auth state changes
+                        auth.onAuthStateChanged(async (user) => {
+                            if (user) {
+                                userId = user.uid;
+                                isAuthReady = true;
+                                userIdElement.textContent = `Kullanıcı ID: ${userId}`;
+                                await this.loadBestScoreFromFirestore(); // Load best score after auth
+                                this.startGameLogic(); // Start game after auth and loading
+                            } else {
+                                // Sign in anonymously if no user and no custom token
+                                if (typeof __initial_auth_token === 'undefined' || __initial_auth_token === '') {
+                                    try {
+                                        await auth.signInAnonymously();
+                                    } catch (error) {
+                                        console.error("Anonim giriş başarısız:", error);
+                                        userIdElement.textContent = "Kullanıcı ID: Hata!";
+                                        firebaseWarningElement.classList.remove('hidden');
+                                        firebaseEnabled = false; // Disable Firebase if auth fails
+                                    }
+                                }
+                            }
+                        });
+
+                        // Try to sign in with custom token if available
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token !== '') {
+                            try {
+                                await auth.signInWithCustomToken(__initial_auth_token);
+                            } catch (error) {
+                                console.error("Firebase özel token ile giriş başarısız:", error);
+                                // Fallback to anonymous if custom token fails
+                                try {
+                                    await auth.signInAnonymously();
+                                } catch (anonError) {
+                                    console.error("Anonim giriş de başarısız:", anonError);
+                                    userIdElement.textContent = "Kullanıcı ID: Hata!";
+                                    firebaseWarningElement.classList.remove('hidden');
+                                    firebaseEnabled = false; // Disable Firebase if auth fails
+                                }
+                            }
+                        } else {
+                            // If no custom token, sign in anonymously immediately
+                            try {
+                                await auth.signInAnonymously();
+                            } catch (error) {
+                                console.error("Anonim giriş başarısız:", error);
+                                userIdElement.textContent = "Kullanıcı ID: Hata!";
+                                firebaseWarningElement.classList.remove('hidden');
+                                firebaseEnabled = false; // Disable Firebase if auth fails
+                            }
+                        }
+                    } catch (error) {
+                        console.error("Firebase başlatılırken hata:", error);
+                        userIdElement.textContent = "Kullanıcı ID: Hata! (Firebase Başlatılamadı)";
+                        firebaseWarningElement.classList.remove('hidden');
+                        firebaseEnabled = false; // Disable Firebase if initialization fails
+                        this.startGameLogic(); // Start game without database features
+                    }
+                } else if (!firebaseEnabled) {
+                    // If Firebase is explicitly disabled, just start the game logic
+                    userIdElement.textContent = "Kullanıcı ID: Veritabanı Devre Dışı";
+                    this.startGameLogic();
+                } else if (isAuthReady) {
+                    // If Firebase is already initialized and auth is ready, just load and start
+                    await this.loadBestScoreFromFirestore();
+                    this.startGameLogic();
+                }
+            },
+
+            startGameLogic: function() {
+                // Existing init logic that sets up the game board, scores, etc.
+                board = Array(GRID_SIZE).fill(0).map(() => Array(GRID_SIZE).fill(0));
+                score = 0;
+                isGameOver = false;
+                hasWon = false;
+                this.updateScore(0); // This will now update Firestore if enabled
+                this.hidePopups();
+                this.addRandomTile();
+                this.addRandomTile();
+                this.renderBoard();
+            },
+
+            loadBestScoreFromFirestore: async function() {
+                if (!firebaseEnabled || !isAuthReady || !userId) {
+                    console.warn("Firestore'dan en iyi skor yüklenemedi: Firebase devre dışı veya kimlik doğrulama hazır değil.");
+                    return;
+                }
+
+                // Firestore path for user-specific data
+                const bestScoreDocRef = db.collection(`artifacts/${appId}/users/${userId}/game_data`).doc('2048_best_score');
+                try {
+                    const docSnap = await bestScoreDocRef.get();
+                    if (docSnap.exists) {
+                        bestScore = docSnap.data().score || 0;
+                    } else {
+                        // If document doesn't exist, create it with initial best score 0
+                        await bestScoreDocRef.set({ score: 0 });
+                        bestScore = 0;
+                    }
+                    this.updateBestScore(); // Update UI
+                } catch (error) {
+                    console.error("Firestore'dan en iyi skor yüklenirken hata:", error);
+                    firebaseWarningElement.classList.remove('hidden');
+                    firebaseEnabled = false; // Disable Firebase on Firestore error
+                }
+            },
+
+            // Updates the score display
+            updateScore: async function(addition = 0) { // Make it async
+                score += addition;
+                scoreElement.textContent = score;
+
+                if (score > bestScore) {
+                    bestScore = score;
+                    // Update Firestore
+                    if (firebaseEnabled && isAuthReady && userId) {
+                        const bestScoreDocRef = db.collection(`artifacts/${appId}/users/${userId}/game_data`).doc('2048_best_score');
+                        try {
+                            await bestScoreDocRef.set({ score: bestScore });
+                        } catch (error) {
+                            console.error("Firestore'da en iyi skor güncellenirken hata:", error);
+                            firebaseWarningElement.classList.remove('hidden');
+                            firebaseEnabled = false; // Disable Firebase on Firestore error
+                        }
+                    }
+                    this.updateBestScore();
+                }
+                if (addition > 0) {
+                    scoreAdditionElement.textContent = `+${addition}`;
+                    scoreAdditionElement.classList.remove('hidden');
+                    scoreAdditionElement.classList.add('animate-pulse'); // Simple animation
+                    setTimeout(() => {
+                        scoreAdditionElement.classList.add('hidden');
+                        scoreAdditionElement.classList.remove('animate-pulse');
+                    }, 500);
+                }
+            },
+
+            // Updates the best score display
+            updateBestScore: function() {
+                bestScoreElement.textContent = bestScore;
+            },
+
+            // Hides game over/win popups
+            hidePopups: function() {
+                failureContainer.style.display = 'none';
+                winningContainer.style.display = 'none';
+            },
+
+            // Adds a random tile (2 or 4) to an empty spot
+            addRandomTile: function() {
+                const emptyCells = [];
+                for (let r = 0; r < GRID_SIZE; r++) {
+                    for (let c = 0; c < GRID_SIZE; c++) {
+                        if (board[r][c] === 0) {
+                            emptyCells.push({ r, c });
+                        }
+                    }
+                }
+
+                if (emptyCells.length > 0) {
+                    const randomCell = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+                    const newValue = Math.random() < 0.9 ? 2 : 4; // 90% chance of 2, 10% chance of 4
+                    board[randomCell.r][randomCell.c] = newValue;
+                }
+            },
+
+            // Renders the board by creating/updating tile elements
+            renderBoard: function() {
+                tileContainer.innerHTML = ''; // Clear existing tiles
+
+                for (let r = 0; r < GRID_SIZE; r++) {
+                    for (let c = 0; c < GRID_SIZE; c++) {
+                        const value = board[r][c];
+                        if (value !== 0) {
+                            const tile = document.createElement('div');
+                            tile.classList.add('tile', `tile-${value}`);
+                            tile.textContent = value;
+                            // Calculate position based on row and column
+                            const left = c * TILE_SIZE_PERCENT + (c * GAP_PERCENT);
+                            const top = r * TILE_SIZE_PERCENT + (r * GAP_PERCENT);
+                            tile.style.left = `${left}%`;
+                            tile.style.top = `${top}%`;
+                            // Adjust width/height to account for gaps
+                            tile.style.width = `calc(${TILE_SIZE_PERCENT}% - ${GAP_PERCENT}rem)`;
+                            tile.style.height = `calc(${TILE_SIZE_PERCENT}% - ${GAP_PERCENT}rem)`;
+
+                            // Add animation class for new tiles
+                            if (!tile.dataset.initialRender) { // Check if it's a new tile or existing
+                                tile.classList.add('tile-new');
+                                tile.dataset.initialRender = 'true';
+                            }
+                            tileContainer.appendChild(tile);
+                        }
+                    }
+                }
+            },
+
+            // Handles tile movement logic
+            move: function(direction) {
+                if (isGameOver || hasWon) return;
+
+                let boardChanged = false;
+                let newBoard = board.map(row => [...row]); // Create a copy of the board
+
+                // Helper function to slide and merge a single row/column
+                const slideAndMerge = (line) => {
+                    let newLine = line.filter(val => val !== 0); // Remove zeros
+                    let merged = Array(newLine.length).fill(false); // Track merged tiles
+
+                    for (let i = 0; i < newLine.length - 1; i++) {
+                        if (newLine[i] === newLine[i + 1] && !merged[i] && !merged[i + 1]) {
+                            newLine[i] *= 2;
+                            this.updateScore(newLine[i]);
+                            if (newLine[i] === 2048) {
+                                hasWon = true;
+                            }
+                            newLine.splice(i + 1, 1); // Remove merged tile
+                            merged[i] = true;
+                            boardChanged = true;
+                        }
+                    }
+                    // Pad with zeros to original length
+                    while (newLine.length < GRID_SIZE) {
+                        newLine.push(0);
+                    }
+                    return newLine;
+                };
+
+                // Apply slideAndMerge based on direction
+                if (direction === 'left') {
+                    for (let r = 0; r < GRID_SIZE; r++) {
+                        const originalRow = [...newBoard[r]];
+                        newBoard[r] = slideAndMerge(newBoard[r]);
+                        if (JSON.stringify(originalRow) !== JSON.stringify(newBoard[r])) {
+                            boardChanged = true;
+                        }
+                    }
+                } else if (direction === 'right') {
+                    for (let r = 0; r < GRID_SIZE; r++) {
+                        const originalRow = [...newBoard[r]];
+                        newBoard[r].reverse(); // Reverse for right slide
+                        newBoard[r] = slideAndMerge(newBoard[r]);
+                        newBoard[r].reverse(); // Reverse back
+                        if (JSON.stringify(originalRow) !== JSON.stringify(newBoard[r])) {
+                            boardChanged = true;
+                        }
+                    }
+                } else if (direction === 'up') {
+                    for (let c = 0; c < GRID_SIZE; c++) {
+                        let column = [];
+                        for (let r = 0; r < GRID_SIZE; r++) {
+                            column.push(newBoard[r][c]);
+                        }
+                        const originalColumn = [...column];
+                        column = slideAndMerge(column);
+                        if (JSON.stringify(originalColumn) !== JSON.stringify(column)) {
+                            boardChanged = true;
+                        }
+                        for (let r = 0; r < GRID_SIZE; r++) {
+                            newBoard[r][c] = column[r];
+                        }
+                    }
+                } else if (direction === 'down') {
+                    for (let c = 0; c < GRID_SIZE; c++) {
+                        let column = [];
+                        for (let r = 0; r < GRID_SIZE; r++) {
+                            column.push(newBoard[r][c]);
+                        }
+                        const originalColumn = [...column];
+                        column.reverse(); // Reverse for down slide
+                        column = slideAndMerge(column);
+                        column.reverse(); // Reverse back
+                        if (JSON.stringify(originalColumn) !== JSON.stringify(column)) {
+                            boardChanged = true;
+                        }
+                        for (let r = 0; r < GRID_SIZE; r++) {
+                            newBoard[r][c] = column[r];
+                        }
+                    }
+                }
+
+                if (boardChanged) {
+                    board = newBoard; // Update the actual board
+                    this.addRandomTile();
+                    this.renderBoard();
+                    this.checkGameStatus();
+                }
+            },
+
+            // Checks if there are any available moves left
+            hasMoves: function() {
+                // Check for empty cells
+                for (let r = 0; r < GRID_SIZE; r++) {
+                    for (let c = 0; c < GRID_SIZE; c++) {
+                        if (board[r][c] === 0) {
+                            return true;
+                        }
+                    }
+                }
+
+                // Check for adjacent equal tiles (horizontal and vertical)
+                for (let r = 0; r < GRID_SIZE; r++) {
+                    for (let c = 0; c < GRID_SIZE; c++) {
+                        const value = board[r][c];
+                        // Check right
+                        if (c < GRID_SIZE - 1 && value === board[r][c + 1]) {
+                            return true;
+                        }
+                        // Check down
+                        if (r < GRID_SIZE - 1 && value === board[r + 1][c]) {
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            },
+
+            // Checks game win/loss status
+            checkGameStatus: function() {
+                if (hasWon) {
+                    winningContainer.style.display = 'flex';
+                    isGameOver = true; // Prevent further moves
+                    return;
+                }
+
+                if (!this.hasMoves()) {
+                    failureContainer.style.display = 'flex';
+                    isGameOver = true; // Prevent further moves
+                }
+            }
+        };
+
+        // Function to set up all event listeners
+        function setupEventListeners() {
+            document.addEventListener('keydown', (e) => {
+                if (isGameOver) return;
+                switch (e.key) {
+                    case 'ArrowUp':
+                        game.move('up');
+                        break;
+                    case 'ArrowDown':
+                        game.move('down');
+                        break;
+                    case 'ArrowLeft':
+                        game.move('left');
+                        break;
+                    case 'ArrowRight':
+                        game.move('right');
+                        break;
+                }
+            });
+
+            // Touch swipe events for mobile
+            let touchStartX = 0;
+            let touchStartY = 0;
+            let touchEndX = 0;
+            let touchEndY = 0;
+
+            document.getElementById('game-board').addEventListener('touchstart', (e) => {
+                touchStartX = e.changedTouches[0].screenX;
+                touchStartY = e.changedTouches[0].screenY;
+            });
+
+            document.getElementById('game-board').addEventListener('touchend', (e) => {
+                touchEndX = e.changedTouches[0].screenX;
+                touchEndY = e.changedTouches[0].screenY;
+                handleSwipe();
+            });
+
+            function handleSwipe() {
+                const dx = touchEndX - touchStartX;
+                const dy = touchEndY - touchStartY;
+                const minSwipeDistance = 50; // Minimum distance for a valid swipe
+
+                if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > minSwipeDistance) {
+                    // Horizontal swipe
+                    if (dx > 0) {
+                        game.move('right');
+                    } else {
+                        game.move('left');
+                    }
+                } else if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > minSwipeDistance) {
+                    // Vertical swipe
+                    if (dy > 0) {
+                        game.move('down');
+                    } else {
+                        game.move('up');
+                    }
+                }
+            }
+
+            // Restart button click (main button)
+            restartButton.addEventListener('click', () => {
+                game.init();
+            });
+
+            // Game title link click
+            if (gameTitleLink) {
+                gameTitleLink.addEventListener('click', () => game.init());
+            }
+
+            // Popup restart buttons click
+            if (failureRestartBtnPopup) {
+                failureRestartBtnPopup.addEventListener('click', () => game.init());
+            }
+            if (winningRestartBtnPopup) {
+                winningRestartBtnPopup.addEventListener('click', () => game.init());
+            }
+
+            // Dark Mode Toggle Event Listener
+            darkModeToggle.addEventListener('click', () => {
+                document.body.classList.toggle('dark');
+                // Save preference to localStorage
+                if (document.body.classList.contains('dark')) {
+                    localStorage.setItem('theme', 'dark');
+                    darkModeToggle.textContent = '🌙'; // Moon icon for dark mode
+                } else {
+                    localStorage.setItem('theme', 'light');
+                    darkModeToggle.textContent = '☀️'; // Sun icon for light mode
+                }
+            });
+
+            // Apply saved theme on load
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'dark') {
+                document.body.classList.add('dark');
+                darkModeToggle.textContent = '🌙';
+            } else {
+                darkModeToggle.textContent = '☀️';
+            }
+        }
+
+        // Initialize the game and setup listeners when the page loads
+        window.onload = async () => {
+            await game.init();
+            setupEventListeners(); // Call this after game.init() finishes its initial setup
+        };
+    </script>
+</body>
+</html>
