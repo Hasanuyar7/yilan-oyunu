@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>Yılan 3D Efektli (Müzikli)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <style>
     body {
       background: #111;
@@ -12,23 +13,146 @@
       align-items: center;
       justify-content: center;
       height: 100vh;
-      font-family: sans-serif;
+      font-family: 'Inter', sans-serif; /* Using Inter font */
       color: white;
+      -webkit-tap-highlight-color: transparent; /* Removes tap highlight on mobile */
+      overflow: hidden; /* Prevent scrolling on mobile */
     }
 
     canvas {
       background: linear-gradient(#222, #000);
       border: 2px solid lime;
       box-shadow: 0 0 20px lime;
+      touch-action: none; /* Prevents default touch actions like scrolling */
+      border-radius: 10px; /* Rounded corners for canvas */
+      max-width: 90vw; /* Make canvas responsive */
+      max-height: 90vw; /* Ensure it's square on smaller screens */
     }
 
     h1 {
       margin-bottom: 5px;
+      font-size: 2em; /* Larger heading */
+      text-shadow: 0 0 5px lime;
     }
 
     p {
       margin-top: 0;
+      font-size: 1.2em;
     }
+
+    #controls {
+      display: grid;
+      grid-template-areas:
+        ". up ."
+        "left . right"
+        ". down .";
+      grid-template-columns: repeat(3, min(25vw, 80px)); /* Responsive button size */
+      grid-template-rows: repeat(3, min(25vw, 80px)); /* Responsive button size */
+      gap: 10px;
+      margin-top: 20px;
+      user-select: none; /* Prevent text selection on buttons */
+      padding: 10px;
+    }
+
+    .control-btn {
+      background-color: #333;
+      color: white;
+      border: 2px solid lime;
+      border-radius: 50%; /* Circular buttons */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.5em; /* Larger arrows */
+      cursor: pointer;
+      box-shadow: 0 0 10px lime;
+      transition: background-color 0.1s ease, transform 0.1s ease;
+      -webkit-tap-highlight-color: transparent; /* Remove tap highlight */
+    }
+
+    .control-btn:active {
+      background-color: #555;
+      transform: scale(0.95); /* Slight press effect */
+    }
+
+    #up { grid-area: up; }
+    #down { grid-area: down; }
+    #left { grid-area: left; }
+    #right { grid-area: right; }
+
+    /* Hide controls on larger screens (e.g., desktop) */
+    @media (min-width: 768px) {
+      #controls {
+        display: none;
+      }
+    }
+
+    /* Modal styles */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+    }
+
+    .modal-overlay.visible {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .modal-content {
+      background-color: #222;
+      padding: 30px;
+      border-radius: 15px;
+      box-shadow: 0 0 30px lime;
+      text-align: center;
+      max-width: 80%;
+      transform: translateY(-20px);
+      transition: transform 0.3s ease;
+    }
+
+    .modal-overlay.visible .modal-content {
+      transform: translateY(0);
+    }
+
+    .modal-content h2 {
+      color: lime;
+      margin-top: 0;
+      font-size: 2.5em;
+    }
+
+    .modal-content p {
+      font-size: 1.5em;
+      margin-bottom: 20px;
+    }
+
+    .modal-content button {
+      background-color: lime;
+      color: #111;
+      border: none;
+      padding: 15px 30px;
+      border-radius: 8px;
+      font-size: 1.2em;
+      cursor: pointer;
+      transition: background-color 0.2s ease, transform 0.2s ease;
+      font-weight: bold;
+    }
+
+    .modal-content button:hover {
+      background-color: #0aff0a;
+      transform: scale(1.05);
+    }
+
+    /* Tailwind CSS for Inter font */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
   </style>
 </head>
 <body>
@@ -36,30 +160,68 @@
   <p><strong>Skor:</strong> <span id="score">0</span></p>
   <canvas id="game" width="400" height="400"></canvas>
 
+  <div id="controls">
+    <div class="control-btn" id="up">&#9650;</div>
+    <div class="control-btn" id="left">&#9664;</div>
+    <div class="control-btn" id="right">&#9654;</div>
+    <div class="control-btn" id="down">&#9660;</div>
+  </div>
+
   <audio id="music" src="music.mp3" preload="auto" loop></audio>
+
+  <!-- Game Over Modal -->
+  <div id="gameOverModal" class="modal-overlay">
+    <div class="modal-content">
+      <h2 id="modalTitle">Oyun Bitti!</h2>
+      <p id="modalScore">Skorunuz: 0</p>
+      <button id="restartButton">Tekrar Oyna</button>
+    </div>
+  </div>
 
   <script>
     const music = document.getElementById("music");
-    document.addEventListener("keydown", () => {
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+    const scoreDisplay = document.getElementById("score");
+    const gameOverModal = document.getElementById("gameOverModal");
+    const modalTitle = document.getElementById("modalTitle");
+    const modalScore = document.getElementById("modalScore");
+    const restartButton = document.getElementById("restartButton");
+
+    const box = 20;
+    let cols, rows;
+    let snake, food, direction, score, speed, gameLoop;
+
+    // Function to set canvas size and recalculate cols/rows based on window size
+    function setCanvasSize() {
+      const size = Math.min(window.innerWidth * 0.8, window.innerHeight * 0.6, 400);
+      canvas.width = Math.floor(size / box) * box;
+      canvas.height = Math.floor(size / box) * box;
+      cols = canvas.width / box;
+      rows = canvas.height / box;
+    }
+
+    // Initial canvas size setup
+    setCanvasSize();
+
+    // Listen for window resize to adjust canvas size
+    window.addEventListener('resize', setCanvasSize);
+
+    // Play music on first user interaction (any keydown, touchstart, or click on controls)
+    function playMusicOnce() {
       if (music.paused) {
         music.volume = 0.3;
         music.play().catch(() => {});
       }
-    }, { once: true });
+      // Remove listeners after first play
+      document.removeEventListener("keydown", playMusicOnce);
+      document.getElementById("controls").removeEventListener("touchstart", playMusicOnce);
+      document.getElementById("controls").removeEventListener("click", playMusicOnce);
+    }
 
-    const canvas = document.getElementById("game");
-    const ctx = canvas.getContext("2d");
-    const scoreDisplay = document.getElementById("score");
-
-    const box = 20;
-    const cols = canvas.width / box;
-    const rows = canvas.height / box;
-
-    let snake = [{ x: 5 * box, y: 5 * box }];
-    let food = spawnFood();
-    let direction = "RIGHT";
-    let score = 0;
-    let speed = 120;
+    document.addEventListener("keydown", playMusicOnce, { once: true });
+    document.getElementById("controls").addEventListener("touchstart", playMusicOnce, { once: true });
+    document.getElementById("controls").addEventListener("click", playMusicOnce, { once: true });
 
     function spawnFood() {
       let newFood;
@@ -72,12 +234,26 @@
       return newFood;
     }
 
+    // Keyboard controls
     document.addEventListener("keydown", e => {
       if (e.key === "ArrowUp" && direction !== "DOWN") direction = "UP";
       else if (e.key === "ArrowDown" && direction !== "UP") direction = "DOWN";
       else if (e.key === "ArrowLeft" && direction !== "RIGHT") direction = "LEFT";
       else if (e.key === "ArrowRight" && direction !== "LEFT") direction = "RIGHT";
     });
+
+    // On-screen controls for touch
+    document.getElementById("up").addEventListener("touchstart", (e) => { e.preventDefault(); if (direction !== "DOWN") direction = "UP"; });
+    document.getElementById("down").addEventListener("touchstart", (e) => { e.preventDefault(); if (direction !== "UP") direction = "DOWN"; });
+    document.getElementById("left").addEventListener("touchstart", (e) => { e.preventDefault(); if (direction !== "RIGHT") direction = "LEFT"; });
+    document.getElementById("right").addEventListener("touchstart", (e) => { e.preventDefault(); if (direction !== "LEFT") direction = "RIGHT"; });
+
+    // Click events for on-screen controls (for desktop testing or non-touch devices)
+    document.getElementById("up").addEventListener("click", () => { if (direction !== "DOWN") direction = "UP"; });
+    document.getElementById("down").addEventListener("click", () => { if (direction !== "UP") direction = "DOWN"; });
+    document.getElementById("left").addEventListener("click", () => { if (direction !== "RIGHT") direction = "LEFT"; });
+    document.getElementById("right").addEventListener("click", () => { if (direction !== "LEFT") direction = "RIGHT"; });
+
 
     function draw3DBlock(x, y, colorTop, colorSide) {
       ctx.fillStyle = "rgba(0,0,0,0.3)";
@@ -116,13 +292,14 @@
       else if (direction === "LEFT") head.x -= box;
       else if (direction === "RIGHT") head.x += box;
 
+      // Check for collision with walls or self
       if (
         head.x < 0 || head.x >= canvas.width ||
         head.y < 0 || head.y >= canvas.height ||
         snake.some(s => s.x === head.x && s.y === head.y)
       ) {
         clearInterval(gameLoop);
-        alert("Oyun Bitti! Skor: " + score);
+        showGameOverModal(); // Show custom modal instead of alert
         return;
       }
 
@@ -147,7 +324,30 @@
       draw();
     }
 
-    let gameLoop = setInterval(loop, speed);
+    function showGameOverModal() {
+      modalTitle.textContent = "Oyun Bitti!";
+      modalScore.textContent = `Skorunuz: ${score}`;
+      gameOverModal.classList.add("visible");
+    }
+
+    function resetGame() {
+      snake = [{ x: 5 * box, y: 5 * box }];
+      food = spawnFood();
+      direction = "RIGHT";
+      score = 0;
+      speed = 120;
+      scoreDisplay.textContent = score;
+      gameOverModal.classList.remove("visible");
+      clearInterval(gameLoop); // Clear any existing loop
+      gameLoop = setInterval(loop, speed); // Start new loop
+      playMusicOnce(); // Ensure music plays if it was paused
+    }
+
+    // Restart button event listener
+    restartButton.addEventListener("click", resetGame);
+
+    // Initial game start
+    resetGame();
   </script>
 </body>
 </html>
